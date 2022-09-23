@@ -1,3 +1,35 @@
+declare module "mongoose" {
+  // expose the private "tree" data structure and "options"
+  interface SchemaTree {
+    _id?: SchemaDefinitionProperty<any>;
+    [key: string]: SchemaDefinitionProperty<any> | SchemaTree | undefined;
+  }
+  interface Schema {
+    tree: SchemaTree;
+    options: SchemaOptions &
+      Required<
+        Pick<
+          SchemaOptions,
+          | "strict"
+          | "strictQuery"
+          | "bufferCommands"
+          | "capped"
+          | "versionKey"
+          | "optimisticConcurrency"
+          | "minimize"
+          | "autoIndex"
+          | "discriminatorKey"
+          | "shardKey"
+          | "read"
+          | "validateBeforeSave"
+          | "_id"
+          | "id"
+          | "typeKey"
+        >
+      >;
+  }
+}
+
 /**
  * Contains information parsed from ts-morph about various types for each model
  */

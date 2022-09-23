@@ -4,7 +4,7 @@ import _ from "lodash";
 
 import * as templates from "./templates";
 
-export const getShouldLeanIncludeVirtuals = (schema: any) => {
+export const getShouldLeanIncludeVirtuals = (schema: mongoose.Schema) => {
   // Check the toObject options to determine if virtual property should be included.
   // See https://mongoosejs.com/docs/api.html#document_Document-toObject for toObject option documentation.
   const toObjectOptions = schema.options?.toObject ?? {};
@@ -89,7 +89,7 @@ const getSubDocName = (path: string, modelName = "") => {
 
 // TODO: this could be moved to the generator too, not really relevant to parsing
 export const parseFunctions = (
-  funcs: any,
+  funcs: { [key: string]: (...args: any) => any },
   modelName: string,
   funcType: "methods" | "statics" | "query"
 ) => {
@@ -193,7 +193,7 @@ const parseChildSchemas = ({
   noMongoose,
   modelName
 }: {
-  schema: any;
+  schema: mongoose.Schema;
   isDocument: boolean;
   noMongoose: boolean;
   modelName: string;
@@ -254,8 +254,8 @@ const parseChildSchemas = ({
           let _idType;
           // get type of _id to pass to mongoose.Document
           // this is likely unecessary, since non-subdocs are not allowed to have option _id: false (https://mongoosejs.com/docs/guide.html#_id)
-          if ((schema as any).tree._id)
-            _idType = convertBaseTypeToTs("_id", (schema as any).tree._id, true, noMongoose);
+          if (schema.tree._id)
+            _idType = convertBaseTypeToTs("_id", schema.tree._id, true, noMongoose);
 
           // TODO: this should extend `${name}Methods` like normal docs, but generator will only have methods, statics, etc. under the model name, not the subdoc model name
           // so after this is generated, we should do a pass and see if there are any child schemas that have non-subdoc definitions.
@@ -283,7 +283,7 @@ const parseChildSchemas = ({
   schema.childSchemas.forEach(processChild(modelName));
 
   const schemaTree = unflatten(flatSchemaTree);
-  schema.tree = schemaTree;
+  schema.tree = schemaTree as any;
 
   return childInterfaces;
 };
@@ -467,7 +467,7 @@ export const parseSchema = ({
   noMongoose = false,
   shouldLeanIncludeVirtuals
 }: {
-  schema: any;
+  schema: mongoose.Schema;
   modelName?: string;
   isDocument: boolean;
   header?: string;
