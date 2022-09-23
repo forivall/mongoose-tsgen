@@ -3,6 +3,7 @@ import flatten, { unflatten } from "flat";
 import _ from "lodash";
 
 import * as templates from "./templates";
+import { AnySchemaDefinitionProperty } from "../types";
 
 export const getShouldLeanIncludeVirtuals = (schema: mongoose.Schema) => {
   // Check the toObject options to determine if virtual property should be included.
@@ -128,7 +129,7 @@ const BASE_TYPES = [
 
 export const convertBaseTypeToTs = (
   key: string,
-  val: any,
+  val: AnySchemaDefinitionProperty,
   isDocument: boolean,
   noMongoose = false
 ) => {
@@ -148,18 +149,30 @@ export const convertBaseTypeToTs = (
   switch (mongooseType) {
     case String:
     case "String":
-      if (val.enum?.length > 0) {
-        const includesNull = val.enum.includes(null);
-        const enumValues = val.enum.filter((str: string) => str !== null);
-        let enumString = `"` + enumValues.join(`" | "`) + `"`;
-        if (includesNull) enumString += ` | null`;
-
-        return enumString;
-      }
-
-      return "string";
     case Number:
     case "Number":
+      const enumType = val.enum;
+      if (enumType) {
+        let values: readonly (string | number | null)[];
+        if ((Array.isArray as (arg: any) => arg is readonly any[])(enumType)) {
+          values = enumType;
+        } else if (Array.isArray(enumType.values)) {
+          values = enumType.values;
+        } else {
+          values = Object.values(enumType);
+        }
+        if (values.length > 0) {
+          const includesNull = values.includes(null);
+          const enumValues = values.filter(str => str !== null);
+          let enumString = enumValues.map(value => JSON.stringify(value)).join(` | `);
+          if (includesNull) enumString += ` | null`;
+
+          return enumString;
+        }
+      }
+      if (mongooseType === "String" || mongooseType === String) {
+        return "string";
+      }
       return key === "__v" ? undefined : "number";
     case mongoose.Schema.Types.Decimal128:
     case mongoose.Types.Decimal128:
