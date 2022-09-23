@@ -29,6 +29,30 @@ declare module "mongoose" {
       >;
   }
 }
+import type mongoose from "mongoose";
+
+type _RemoveIndex<T> = {
+  [K in keyof T as string extends K ? never : number extends K ? never : K]: T[K];
+};
+type KnownKeys<T> = Extract<keyof _RemoveIndex<T>, keyof T>;
+
+type RemoveIndex<T> = T extends never ? never : string extends keyof T ? Pick<T, KnownKeys<T>> : T;
+type Empty<K extends keyof any> = { [_ in K]?: never };
+
+type BuiltinSchemaTypes =
+  | typeof mongoose.Schema.Types.Number
+  | typeof mongoose.Schema.Types.String
+  | typeof mongoose.Schema.Types.Boolean
+  | typeof mongoose.Schema.Types.Date
+  | typeof mongoose.SchemaTypes.Mixed;
+export type _AnySchemaDefinitionProperty<T = RemoveIndex<mongoose.SchemaDefinitionProperty<any>>> =
+  T extends never
+    ? never
+    : T &
+        Empty<
+          Exclude<KnownKeys<mongoose.SchemaTypeOptions<any>> | keyof BuiltinSchemaTypes, keyof T>
+        >;
+export type AnySchemaDefinitionProperty = _AnySchemaDefinitionProperty;
 
 /**
  * Contains information parsed from ts-morph about various types for each model
