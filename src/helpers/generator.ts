@@ -194,7 +194,13 @@ export const createSourceFile = (genPath: string) => {
   return sourceFile;
 };
 
-export const getSchemaTypes = ({ schema, modelName }: { schema: any; modelName: string }) => {
+export const getSchemaTypes = ({
+  schema,
+  modelName
+}: {
+  schema: mongoose.Schema;
+  modelName: string;
+}) => {
   let schemaTypes = "";
 
   // add type alias to modelName so that it can be imported without clashing with the mongoose model
@@ -277,8 +283,8 @@ export const generateTypes = ({
       // get type of _id to pass to mongoose.Document
       // not sure why schema doesnt have `tree` property for typings
       let _idType;
-      if ((schema as any).tree._id) {
-        _idType = parser.convertBaseTypeToTs("_id", (schema as any).tree._id, true, noMongoose);
+      if (schema.tree._id) {
+        _idType = parser.convertBaseTypeToTs("_id", schema.tree._id, true, noMongoose);
       }
 
       const mongooseDocExtend = `mongoose.Document<${_idType ?? "never"}, ${modelName}Queries>`;
