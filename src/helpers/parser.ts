@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import flatten, { unflatten } from "flat";
 import _ from "lodash";
+import * as morph from "ts-morph";
+import structure from "./create";
 
 import * as templates from "./templates";
 import { AnySchemaDefinitionProperty } from "../types";
@@ -42,27 +44,22 @@ const formatKeyEntry = ({
   return line;
 };
 
-export const convertFuncSignatureToType = (
-  funcSignature: string,
+export const convertFuncSignatureToType = <T extends morph.ParameteredNodeStructure>(
+  funcSignature: T,
   funcType: "methods" | "statics" | "query",
   modelName: string
-) => {
-  const [, params, returnType] = funcSignature.match(/\((?:this: \w*(?:, )?)?(.*)\) => (.*)/) ?? [];
-  let type;
-  if (funcType === "query") {
-    type = `(this: ${modelName}Query${
-      params?.length > 0 ? ", " + params : ""
-    }) => ${modelName}Query`;
-  } else if (funcType === "methods") {
-    type = `(this: ${modelName}Document${params?.length > 0 ? ", " + params : ""}) => ${
-      returnType ?? "any"
-    }`;
-  } else {
-    type = `(this: ${modelName}Model${params?.length > 0 ? ", " + params : ""}) => ${
-      returnType ?? "any"
-    }`;
-  }
-  return type;
+): T => {
+  const thisType =
+    funcType === "query" ?
+      `${modelName}Query` :
+      funcType === "methods" ?
+      `${modelName}Document` :
+      `${modelName}Model`;
+
+  return {
+    ...funcSignature,
+    parameters: [{ name: "this", type: thisType }, ...(funcSignature.parameters ?? [])]
+  };
 };
 
 export const convertToSingular = (str: string) => {
@@ -94,17 +91,20 @@ export const parseFunctions = (
   modelName: string,
   funcType: "methods" | "statics" | "query"
 ) => {
-  let interfaceString = "";
+  const methods: morph.MethodSignatureStructure[] = [];
 
   Object.keys(funcs).forEach(key => {
     if (["initializeTimestamps"].includes(key)) return;
 
-    const funcSignature = "(...args: any[]) => any";
-    const type = convertFuncSignatureToType(funcSignature, funcType, modelName);
-    interfaceString += formatKeyEntry({ key, val: type });
+    const methodStructure = structure.createMethodSignature({
+      name: key,
+      parameters: [{ name: "args", type: "any[]" }],
+      returnType: "any"
+    });
+    methods.push(convertFuncSignatureToType(methodStructure, funcType, modelName));
   });
 
-  return interfaceString;
+  return methods;
 };
 
 const BASE_TYPES = [
@@ -200,7 +200,7 @@ export const convertBaseTypeToTs = (
   }
 };
 
-const parseChildSchemas = ({
+export const parseChildSchemas = ({
   schema,
   isDocument,
   noMongoose,
@@ -306,7 +306,10 @@ export const getParseKeyFn = (
   shouldLeanIncludeVirtuals: boolean,
   noMongoose: boolean
 ) => {
-  return (key: string, valOriginal: any): string => {
+  return (
+    key: string,
+    valOriginal: mongoose.SchemaTree | mongoose.SchemaDefinitionProperty<any>
+  ): string => {
     // if the value is an object, we need to deepClone it to ensure changes to `val` aren't persisted in parent function
     let val = _.isPlainObject(valOriginal) ? _.cloneDeep(valOriginal) : valOriginal;
 
@@ -495,6 +498,8 @@ export const parseSchema = ({
     template += parseChildSchemas({ schema, isDocument, noMongoose, modelName });
   }
 
+  schema.paths;
+
   template += header;
 
   const schemaTree = schema.tree;
@@ -510,3 +515,8 @@ export const parseSchema = ({
 
   return template;
 };
+
+// TODO: rewrite parseSchema, using `schema.paths` instead!
+// this lets us leverage mongoose's parsing that it's already done, rather
+// than using schema.tree and trying to re-parse the entire schema all over again.
+// also, instead of outputting the code as strings, emit ts-morph objects
