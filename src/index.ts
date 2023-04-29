@@ -1,6 +1,6 @@
 import { Args, Command, Config, Interfaces, Flags, ux } from "@oclif/core";
 
-import * as parser from "./helpers/parser";
+import * as loader from "./helpers/loader";
 import * as tsReader from "./helpers/tsReader";
 import * as paths from "./helpers/paths";
 import * as formatter from "./helpers/formatter";
@@ -145,7 +145,7 @@ class MongooseTsgen extends Command {
 
     const cleanupTs = tsReader.registerUserTs(flags.project);
 
-    const schemas = parser.loadSchemas(modelsPaths);
+    const schemas = loader.loadSchemas(modelsPaths);
 
     const genFilePath = paths.cleanOutputPath(flags.output);
     let sourceFile = generator.createSourceFile(genFilePath);

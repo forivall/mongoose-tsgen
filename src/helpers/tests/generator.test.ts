@@ -1,6 +1,6 @@
 import { setupFolderStructure, cleanup } from "./utils";
-import * as parser from "../parser";
 import * as generator from "../generator";
+import * as loader from "../loader";
 import * as paths from "../paths";
 import * as tsReader from "../tsReader";
 import fs from "fs";
@@ -31,7 +31,7 @@ describe("generateTypes", () => {
     const modelsPaths = await paths.getModelsPaths("./src/helpers/tests/models/user.ts");
     const cleanupTs = tsReader.registerUserTs("tsconfig.test.json");
 
-    const schemas = parser.loadSchemas(modelsPaths);
+    const schemas = loader.loadSchemas(modelsPaths);
     let sourceFile = generator.createSourceFile(genFilePath);
     sourceFile = await generator.generateTypes({ schemas, sourceFile });
 
@@ -51,7 +51,7 @@ describe("generateTypes", () => {
     const modelsPaths = await paths.getModelsPaths("./src/helpers/tests/artifacts/device.ts");
     const cleanupTs = tsReader.registerUserTs("tsconfig.test.json");
 
-    const schemas = parser.loadSchemas(modelsPaths);
+    const schemas = loader.loadSchemas(modelsPaths);
 
     let sourceFile = generator.createSourceFile(genFilePath);
     sourceFile = await generator.generateTypes({ schemas, sourceFile });
@@ -69,7 +69,7 @@ describe("generateTypes", () => {
     const modelsPaths = await paths.getModelsPaths("./src/helpers/tests/artifacts/user2.ts");
     const cleanupTs = tsReader.registerUserTs("tsconfig.test.json");
 
-    const schemas = parser.loadSchemas(modelsPaths);
+    const schemas = loader.loadSchemas(modelsPaths);
 
     let sourceFile = generator.createSourceFile(genFilePath);
     sourceFile = await generator.generateTypes({ schemas, sourceFile });
