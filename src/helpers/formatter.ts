@@ -8,18 +8,19 @@ import prettier from "prettier";
 // import { ESLint } from "eslint";
 
 // NOTE: this could be sped up by formatting the generated file string prior to writing (no need to write file then read it again here and re-write it)
-const prettifyFiles = (filePaths: string[]) => {
+const prettifyFiles = async (filePaths: string[]) => {
   const config =
-    prettier.resolveConfig.sync(process.cwd(), { useCache: true, editorconfig: true }) ?? {};
+    (await prettier.resolveConfig(process.cwd(), { useCache: true, editorconfig: true })) ?? {};
 
-  filePaths.forEach((filePath: string) => {
-    const ogContent = fs.readFileSync(filePath);
+  const promises = filePaths.map(async (filePath: string) => {
+    const ogContent = await fs.promises.readFile(filePath, "utf8");
     const formattedContent = prettier.format(ogContent.toString(), {
       ...config,
       parser: "typescript"
     });
-    fs.writeFileSync(filePath, formattedContent);
+    await fs.promises.writeFile(filePath, formattedContent, "utf8");
   });
+  await Promise.all(promises);
 };
 
 // const fixFiles = async (_filePaths: string[]) => {
@@ -29,6 +30,6 @@ const prettifyFiles = (filePaths: string[]) => {
 // };
 
 export const format = async (filePaths: string[]) => {
-  prettifyFiles(filePaths);
+  await prettifyFiles(filePaths);
   // await fixFiles(filePaths);
 };
