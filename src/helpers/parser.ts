@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { SchemaTypeOptions } from "mongoose";
 import flatten, { unflatten } from "flat";
 import _ from "lodash";
 import * as morph from "ts-morph";
@@ -50,11 +50,11 @@ export const convertFuncSignatureToType = <T extends morph.ParameteredNodeStruct
   modelName: string
 ): T => {
   const thisType =
-    funcType === "query" ?
-      `${modelName}Query` :
-      funcType === "methods" ?
-      `${modelName}Document` :
-      `${modelName}Model`;
+    funcType === "query"
+      ? `${modelName}Query`
+      : funcType === "methods"
+      ? `${modelName}Document`
+      : `${modelName}Model`;
 
   return {
     ...funcSignature,
@@ -250,9 +250,9 @@ export const parseChildSchemas = ({
 
       let header = "";
       if (isDocument)
-        header += isSubdocArray ?
-          templates.getSubdocumentDocs(rootPath, path) :
-          templates.getDocumentDocs(rootPath);
+        header += isSubdocArray
+          ? templates.getSubdocumentDocs(rootPath, path)
+          : templates.getDocumentDocs(rootPath);
       else header += templates.getLeanDocs(rootPath, name);
 
       header += "\nexport ";
@@ -425,9 +425,9 @@ export const getParseKeyFn = (
         docRef = getSubDocName(docRef);
       }
 
-      valType = isDocument ?
-        `${docRef}Document["_id"] | ${docRef}Document` :
-        `${docRef}["_id"] | ${docRef}`;
+      valType = isDocument
+        ? `${docRef}Document["_id"] | ${docRef}Document`
+        : `${docRef}["_id"] | ${docRef}`;
     } else {
       // _ids are always required
       if (key === "_id") isOptional = false;
@@ -493,6 +493,7 @@ export const parseSchema = ({
 }) => {
   let template = "";
   const schema = _.cloneDeep(schemaOriginal);
+  schema.paths;
 
   if (schema.childSchemas?.length > 0 && modelName) {
     template += parseChildSchemas({ schema, isDocument, noMongoose, modelName });
@@ -520,3 +521,103 @@ export const parseSchema = ({
 // this lets us leverage mongoose's parsing that it's already done, rather
 // than using schema.tree and trying to re-parse the entire schema all over again.
 // also, instead of outputting the code as strings, emit ts-morph objects
+
+type Visitor<C, R> = {
+  [T in keyof typeof mongoose.Schema.Types]: (
+    this: C,
+    type: InstanceType<typeof mongoose.Schema.Types[T]>
+  ) => R;
+};
+
+const schemaTypeNames = Object.keys(mongoose.Schema.Types) as ReadonlyArray<
+  keyof typeof mongoose.Schema.Types
+>;
+
+export function getSchemaType(type: mongoose.SchemaType) {
+  for (const schemaType of schemaTypeNames) {
+    if (type instanceof mongoose.Schema.Types[schemaType]) {
+      return schemaType;
+    }
+  }
+  throw new Error(`Unknown SchemaType ${type.instance}`);
+}
+
+export interface ParsedEnum {
+  raw: NonNullable<mongoose.SchemaTypeOptions<any>["enum"]>;
+  rawValues: readonly any[] | object;
+  values: readonly any[];
+}
+
+export function parseEnumOption(type: mongoose.SchemaType): ParsedEnum | undefined {
+  const raw = (type.options as mongoose.SchemaTypeOptions<any>).enum;
+  if (!raw) {
+    return undefined;
+  }
+  if (Array.isArray(raw)) {
+    return {
+      raw,
+      rawValues: raw,
+      values: raw
+    };
+  }
+  if (Array.isArray(raw.values)) {
+    return {
+      raw,
+      rawValues: raw.values,
+      values: raw.values
+    };
+  }
+  return {
+    raw,
+    rawValues: raw,
+    values: Object.values(raw)
+  };
+}
+
+class ExaustiveSwitchError extends Error {
+  constructor(value: never) {
+    super(`Exhaustive switch unexpected value ${value}`);
+  }
+}
+
+export class MongooseSchemaParser {
+  parents: morph.InterfaceDeclarationStructure[] = [];
+
+  visit(schema: mongoose.Schema, prefix: string) {
+    this.parents.unshift(schema);
+    let prev: readonly string[];
+    schema.eachPath((path, type) => {
+      if (path.endsWith(".$*")) {
+        return;
+      }
+    });
+    this.parents.shift();
+  }
+
+  visitOne(schemaType: mongoose.SchemaType) {
+    const type = getSchemaType(schemaType);
+    switch (type) {
+      case "Boolean":
+      case "Buffer":
+      case "Date":
+      case "Decimal128":
+      case "ObjectId":
+      case "Mixed":
+        return { type, schemaType };
+      case "String":
+      case "Number": {
+        return { type, schemaType, enum: parseEnumOption(schemaType) };
+      }
+      case "Array":
+        const { caster } = schemaType as mongoose.Schema.Types.Array;
+        return { type: "Array", items: caster && this.visitOne(caster) };
+      default:
+        throw new ExaustiveSwitchError(type);
+    }
+  }
+
+  get current() {
+    return this.parents[0];
+  }
+}
+export interface MongooseSchemaParser extends Visitor<MongooseSchemaParser, any> {}

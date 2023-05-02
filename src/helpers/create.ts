@@ -10,6 +10,6 @@ type StructureCreators = {
 const create: { [kind: string]: (structure: any) => any } = {};
 for (const kindName of Object.keys(StructureKind)) {
   const kind = StructureKind[kindName as keyof typeof StructureKind];
-  create[kindName] = structure => ({ kind, ...structure });
+  create[`create${kindName}`] = structure => ({ kind, ...structure });
 }
 export default create as StructureCreators;
